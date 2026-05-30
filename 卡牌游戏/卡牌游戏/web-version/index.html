@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寓灵录 · 网页版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="xianxia-panel" aria-label="寓灵录">
+        <div class="xianxia-panel__frame">
+            <div id="gameContainer" data-bg-scheme="max-clear">
+                <canvas id="gameCanvas"></canvas>
+
+                <div id="battleBackdrop" class="battle-backdrop" aria-hidden="true">
+                    <div class="scene-ink scene-ink--mountain" aria-hidden="true"></div>
+                    <div class="scene-ink scene-ink--cloud" aria-hidden="true"></div>
+
+                    <section class="battle-stage" aria-label="战斗舞台">
+                        <div id="enemyZone" class="zone zone--enemy">
+                            <div class="enemy-zone-row">
+                                <div class="enemy-hand-pile" aria-hidden="true">
+                                    <div class="enemy-hand-pile__stack"></div>
+                                    <span id="enemyHandCountBadge" class="enemy-hand-pile__badge">0</span>
+                                </div>
+                                <div id="enemyHandPreview" class="battle-info-label battle-info-label--enemy">敌方手牌: 0张</div>
+                            </div>
+                            <div id="enemyBattleSlots" class="battle-info-label">敌方出牌区 · 0 个单位</div>
+                        </div>
+
+                        <div id="playerBattleSlots" class="zone zone--player">
+                            <span class="battle-info-label">我方出牌区</span>
+                            <div id="battlefieldArea" class="battlefield-area--embed">
+                                <span id="battlefieldLabel" class="battlefield-area__hint">拖拽随从时显示落点</span>
+                                <div class="deploy-slots" aria-hidden="true">
+                                    <div class="deploy-slot"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="unitsLayer" aria-hidden="true"></div>
+
+                <div id="uiLayer">
+                    <aside class="battle-rail" aria-hidden="true">
+                        <div class="battle-rail__chip" title="信息">讯</div>
+                        <div class="battle-rail__chip" title="牌库">册</div>
+                        <div class="battle-rail__chip" title="状态">态</div>
+                    </aside>
+
+                    <div id="topPanel" class="panel scroll-panel">
+                        <div id="statusRow">
+                            <span id="turnInfo">回合: 1</span>
+                            <span id="phaseInfo">阶段: 出牌</span>
+                            <span id="playerInfo">玩家: Player1</span>
+                        </div>
+                        <div id="levelRow">
+                            <span id="levelInfo">关卡 1/4 · 星尘试炼</span>
+                            <span id="levelTarget">目标: 击败星尘守卫</span>
+                        </div>
+                    </div>
+
+                    <div id="bottomPanel" class="panel command-strip command-strip--spec">
+                        <div class="instructions" id="instructionText">
+                            随从拖/点 · 锦囊/道具出牌点 · 空格切阶段
+                        </div>
+                    </div>
+
+                    <div class="player-dock" id="playerDock">
+                        <div id="spiritOrb" class="spirit-orb spirit-orb--dock" aria-live="polite" aria-label="我方灵力">
+                            <div class="spirit-orb__figure">
+                                <img
+                                    class="spirit-orb__art"
+                                    src="images/ui/spirit_orb.png"
+                                    alt=""
+                                    width="240"
+                                    height="240"
+                                    decoding="async"
+                                />
+                                <span id="playerManaDisplay" class="spirit-orb__value">0 / 0</span>
+                            </div>
+                        </div>
+
+                        <div id="handArea" class="panel hand-panel hand-panel--dock">
+                            <div class="hand-area-title">
+                                我方手牌
+                                <span id="playerHandSizeHint" class="hand-size-hint" aria-live="polite"></span>
+                            </div>
+                            <div id="handCardsTrack" class="hand-cards-track hand-cards-track--spec"></div>
+                        </div>
+
+                        <button
+                            id="endTurnButton"
+                            class="end-turn-btn end-turn-btn--dock"
+                            type="button"
+                        >
+                            结束回合
+                        </button>
+                    </div>
+
+                    <div id="loadingOverlay">
+                        <div class="loading-title">仙域战场载入中</div>
+                        <div class="loading-subtitle">山海灵阵正在凝聚...</div>
+                        <div class="loading-bar-wrap">
+                            <div id="loadingBar" class="loading-bar"></div>
+                        </div>
+                        <div id="loadingStatus" class="loading-status">初始化资源...</div>
+                    </div>
+
+                    <div id="levelSelection" class="level-selection" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="levelSelectionTitle">
+                        <h1 id="levelSelectionTitle">关卡选择</h1>
+                        <p class="level-selection__sub">选择一场星穹战役；确认后将选择英雄并开战</p>
+                        <div class="level-preview-card">
+                            <h2 id="levelSelectName">星尘试炼</h2>
+                            <p id="levelSelectTarget" class="level-preview-card__target">目标: 击败星尘守卫</p>
+                            <p id="levelSelectMeta" class="level-preview-card__meta"></p>
+                        </div>
+                        <div id="levelOptions" class="level-options" role="listbox" aria-label="可选关卡"></div>
+                        <button type="button" id="levelSelectionHomeBtn" class="level-selection__home">返回主界面</button>
+                        <button type="button" id="levelConfirmBtn" class="level-selection__confirm">确认并开始选角</button>
+                        <p class="level-selection__kbd">← → 切换 · Enter 确认 · Esc 返回主界面</p>
+                    </div>
+
+                    <div id="characterSelection" class="character-selection" style="display: none;">
+                        <h1>角色选择</h1>
+                        <p>按 ← → 切换角色，Enter 开战 · Esc 返回选关 · 下方可回主界面</p>
+
+                        <div id="characterCards">
+                            <div class="character-card">
+                                <div class="character-card__art-wrap">
+                                    <img
+                                        id="characterSelectArt"
+                                        class="character-card__art"
+                                        src="images/heroes/player_0.png"
+                                        alt="玄武守卫"
+                                    />
+                                </div>
+                                <h2 id="characterSelectName">玄武守卫</h2>
+                                <p id="characterSelectTitle" class="character-card__subtitle">防御 · 护卫</p>
+                                <p id="characterSelectDesc" class="character-card__desc">重甲盾卫，稳守阵脚；擅护友方随从，以守势化解强敌锋芒。</p>
+                                <p id="characterSelectStats" class="character-card__stats">英雄生命: 30</p>
+                            </div>
+                        </div>
+
+                        <div id="characterOptions">
+                            <div class="character-option selected" data-character="0">玄武守卫 - 防御 · 护卫</div>
+                            <div class="character-option" data-character="1">逍遥剑客 - 均衡 · 剑客</div>
+                            <div class="character-option" data-character="2">九尾灵狐 - 机动 · 灵妖</div>
+                            <div class="character-option" data-character="3">青云剑修 - 输出 · 剑修</div>
+                        </div>
+
+                        <div
+                            id="characterInfiniteManaRow"
+                            class="character-selection__infinite-row"
+                            role="group"
+                            aria-label="试玩选项"
+                        >
+                            <label class="character-selection__toggle-label" for="characterInfiniteManaToggle">
+                                <input type="checkbox" id="characterInfiniteManaToggle" />
+                                <span class="character-selection__toggle-text">无限灵力（试玩）</span>
+                            </label>
+                            <p class="character-selection__toggle-hint">开启后本局不扣灵力，灵力显示为 ∞；与地址栏 <code>?infiniteMana=1</code> 效果相同，可叠加。</p>
+                        </div>
+
+                        <div id="characterSelectionNav" class="character-selection__nav" role="group" aria-label="导航">
+                            <button type="button" id="characterSelectionBackBtn" class="character-selection__back">
+                                ← 返回选关
+                            </button>
+                            <button type="button" id="characterSelectionHomeBtn" class="character-selection__back character-selection__back--home">
+                                返回主界面
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bossClearVideoLayer" class="boss-clear-video-layer" style="display: none;" aria-hidden="true">
+                        <video
+                            id="bossClearVideo"
+                            class="boss-clear-video"
+                            playsinline
+                            preload="none"
+                            disablepictureinpicture
+                        ></video>
+                        <button type="button" id="bossClearVideoSkip" class="boss-clear-video__skip">跳过</button>
+                    </div>
+
+                    <div id="levelResultModal">
+                        <div class="result-panel">
+                            <div id="levelResultTitle" class="result-title">关卡结果</div>
+                            <div id="levelResultDetail" class="result-detail">战斗已结束。</div>
+                            <div class="result-actions">
+                                <button id="levelPrimaryAction" class="result-btn">继续</button>
+                                <button id="levelSecondaryAction" class="result-btn">重试</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="entryScreen" class="entry-screen" role="dialog" aria-modal="true" aria-labelledby="gameTitleDisplay">
+                    <div class="entry-screen__inner">
+                        <p class="entry-screen__eyebrow">仙侠绘卷 · 灵阵争锋</p>
+                        <img
+                            id="gameTitleDisplay"
+                            class="entry-screen__logo"
+                            src="images/ui/title-yulinglu.png"
+                            alt="寓灵录 · Chronicles of Spirits"
+                            decoding="async"
+                        />
+                        <p class="entry-screen__subtitle">星尘为子，道法为局 — 迎战星域守卫</p>
+                        <button type="button" id="entryStartBtn" class="entry-screen__btn">进入游戏</button>
+                        <p class="entry-screen__hint">点击按钮或按 Enter</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/game.js"></script>
+    <script src="js/cards.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>
